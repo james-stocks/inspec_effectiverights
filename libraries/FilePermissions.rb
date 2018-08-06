@@ -4,11 +4,23 @@ class FilePermissions < Inspec.resource(1)
   def initialize(filename, options = {})
     @filename = filename
     @results = nil
+    @group_names = nil
+  end
+
+  def ReadAndExecute
+    fetch_results unless @results
+    # Return keys that have this permission, with the domain stripped
+    @results.select { |k,v| v.include?('ReadAndExecute') }.keys.map { |key| key.split("\\")[-1] }
   end
 
   def method_missing(name)
-    @results ||= fetch_results
-    return @results[name] if @results.has_key?(name)
+    @group_names ||= fetch_group_names
+    fetch_results unless @results
+    # Return the results for this entity if it exists (with some domain name) in the result set
+    entity_key = @results.keys.select { |key| key.split("\\")[-1] == name.to_s }[0]
+    return @results[entity_key] if entity_key
+    # Entity not in the result set is "no permissions"
+    []
   end
 
   def to_s
@@ -18,8 +30,20 @@ class FilePermissions < Inspec.resource(1)
   private
 
   def fetch_results
-    {'Administrator': ['Write'],
-     'Guest': ['Write']
-    }
+    @results = {}
+    cmd = inspec.powershell('Get-Acl C:\\Windows\\system32\\EventVwr.exe | select -expand access')
+    raise cmd.stderr.strip unless cmd.stderr == ''
+    access_details = cmd.stdout.strip.split("\r\n\r\n").map { |entry| entry.split("\r\n") }
+    access_details.each do |access_detail|
+      entity = access_detail.select { |a| a =~ %r{^IdentityReference} }[0].tr(' ', '').split(':')[-1]
+      permissions = access_detail.select { |a| a =~ %r{^FileSystemRights} }[0].tr(' ', '').split(':')[-1].split(',')
+      @results[entity] = permissions
+    end
+  end
+
+  def fetch_group_names
+    @group_names = {}
+    group_data = inspec.command('wmic group get Name","SID /format:csv').stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
+    group_data.each { |group| @group_names[group[2]] = group[1] }
   end
 end
