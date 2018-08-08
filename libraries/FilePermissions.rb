@@ -14,7 +14,6 @@ class FilePermissions < Inspec.resource(1)
   end
 
   def method_missing(name)
-    @group_names ||= fetch_group_names
     fetch_results unless @results
     # Return the results for this entity if it exists (with some domain name) in the result set
     entity_key = @results.keys.select { |key| key.split("\\")[-1] == name.to_s }[0]
@@ -31,12 +30,15 @@ class FilePermissions < Inspec.resource(1)
 
   def fetch_results
     @results = {}
+    fetch_group_names unless @group_names
     cmd = inspec.powershell('Get-Acl C:\\Windows\\system32\\EventVwr.exe | select -expand access')
     raise cmd.stderr.strip unless cmd.stderr == ''
     access_details = cmd.stdout.strip.split("\r\n\r\n").map { |entry| entry.split("\r\n") }
     access_details.each do |access_detail|
       entity = access_detail.select { |a| a =~ %r{^IdentityReference} }[0].tr(' ', '').split(':')[-1]
       permissions = access_detail.select { |a| a =~ %r{^FileSystemRights} }[0].tr(' ', '').split(':')[-1].split(',')
+      # Replace the entity name from Get-Acl with a SID where possible
+      entity = @group_names[entity.split("\\")[-1]] if @group_names.has_key? entity.split("\\")[-1]
       @results[entity] = permissions
     end
   end
@@ -44,6 +46,6 @@ class FilePermissions < Inspec.resource(1)
   def fetch_group_names
     @group_names = {}
     group_data = inspec.command('wmic group get Name","SID /format:csv').stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
-    group_data.each { |group| @group_names[group[2]] = group[1] }
+    group_data.each { |group| @group_names[group[1]] = group[2] }
   end
 end
