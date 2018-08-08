@@ -1,17 +1,18 @@
 class Sid < Inspec.resource(1)
   # Resource that returns a Security ID for a given entity name in Windows
+  # If there is no SID for this entity, echo back the entity name.
   name 'sid'
 
   def initialize(name)
     @name = name
     @sids = nil
     fetch_sids
-    @sid = @sids[@name] || ''
+    @sid = @sids[@name] || @name
   end
 
   def to_s
     fetch_sids unless @sids
-    @sid = @sids[@name].to_s || ''
+    @sid = @sids[@name].to_s || @name
     @sid
   end
 
