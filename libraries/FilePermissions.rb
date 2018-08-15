@@ -7,10 +7,12 @@ class FilePermissions < Inspec.resource(1)
     @group_names = nil
   end
 
-  def ReadAndExecute
-    fetch_results unless @results
-    # Return keys that have this permission, with the domain stripped
-    @results.select { |k,v| v.include?('ReadAndExecute') }.keys.map { |key| key.split("\\")[-1] }
+  %w{Read ReadAndExecute Modify Sychronize FullControl}.each do |perm|
+    define_method perm do
+      fetch_results unless @results
+      # Return keys that have this permission, with the domain stripped
+      @results.select { |k,v| v.include?(perm) }.keys.map { |key| key.split("\\")[-1] }
+    end
   end
 
   def method_missing(name)
