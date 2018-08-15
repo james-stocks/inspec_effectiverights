@@ -33,7 +33,7 @@ class FilePermissions < Inspec.resource(1)
   def fetch_results
     @results = {}
     fetch_group_names unless @group_names
-    cmd = inspec.powershell('Get-Acl C:\\Windows\\system32\\EventVwr.exe | select -expand access')
+    cmd = inspec.powershell("Get-Acl #{@filename} | select -expand access")
     raise cmd.stderr.strip unless cmd.stderr == ''
     access_details = cmd.stdout.strip.split("\r\n\r\n").map { |entry| entry.split("\r\n") }
     access_details.each do |access_detail|
