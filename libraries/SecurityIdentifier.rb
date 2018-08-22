@@ -22,9 +22,8 @@ class SecurityIdentifier < Inspec.resource(1)
 
   def fetch_sids
     @sids = {}
-    # This could be more specific and only query for @name - but with Inspec command caching, it may save time to have all the results cached?
-    wmi_query = 'wmic group get Name","SID /format:csv'
-    wmi_query = 'wmic useraccount get Name","SID /format:csv' if @user
+    wmi_query = "wmic group where 'Name=\"#{@group}\"' get Name\",\"SID /format:csv"
+    wmi_query = "wmic useraccount where 'Name=\"#{@user}\"' get Name\",\"SID /format:csv" if @user
     sid_data = inspec.command(wmi_query).stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
     sid_data.each { |sid| @sids[sid[1]] = sid[2] }
   end
