@@ -1,7 +1,12 @@
 class SecurityIdentifier < Inspec.resource(1)
-  # Resource that returns a Security ID for a given entity name in Windows
-  # If there is no SID for this entity, echo back the entity name.
   name 'security_identifier'
+  supports platform: 'windows'
+  desc 'Resource that returns a Security Identifier for a given entity name in Windows. Because different entities can have the same name (e.g. a user and group can both be called \'devops\') the resource requires the type of the entity (:user, :group) to be stated to avoid an ambiguous test'
+  example "
+    describe security_policy do
+      its(\"SeRemoteInteractiveLogonRight\") { should_not include security_identifier(group: 'Guests') }
+    end
+  "
 
   def initialize(opts = {})
     supported_opt_keys = [:user, :group]
