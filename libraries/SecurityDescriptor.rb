@@ -14,7 +14,6 @@ class SecurityDescriptor < Inspec.resource(1)
   def initialize(filename, options = {})
     @filename = filename
     @results = nil
-    @group_names = nil
   end
 
   %w{Read ReadAndExecute Write Modify Sychronize FullControl}.each do |perm|
@@ -42,7 +41,6 @@ class SecurityDescriptor < Inspec.resource(1)
 
   def fetch_results
     @results = {}
-    fetch_sids unless (@group_names && @useraccount_names)
     cmd = inspec.powershell("Get-Acl #{@filename} | select -expand access")
     raise cmd.stderr.strip unless cmd.stderr == ''
     access_details = cmd.stdout.strip.split("\r\n\r\n").map { |entry| entry.split("\r\n") }
@@ -52,22 +50,16 @@ class SecurityDescriptor < Inspec.resource(1)
       # Get-Acl displays entity names in its results rather than SIDs.
       # It is preferable to work with SIDs when testing security
       # Replace the entity name from Get-Acl with a SID where possible.
-      # TODO: If the entity name exists as both a group AND a useraccount this may replace with the wrong SID
-      # TODO: It would be possible to keep both the entity name and SID, and allow users of this resource to query either
-      entity = @useraccount_names[entity.split("\\")[-1]] if @useraccount_names.has_key? entity.split("\\")[-1]
-      entity = @group_names[entity.split("\\")[-1]] if @group_names.has_key? entity.split("\\")[-1]
-      @results[entity] = permissions
+      entity_id = get_sid(entity.split("\\")[-1])
+      @results[entity_id] = permissions
     end
   end
 
-  # Fetch SIDs for users and groups on the system.
-  def fetch_sids
-    @group_names = {}
-    group_data = inspec.command('wmic group get Name","SID /format:csv').stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
-    group_data.each { |group| @group_names[group[1]] = group[2] }
-
-    @useraccount_names = {}
-    useraccount_data = inspec.command('wmic useraccount get Name","SID /format:csv').stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
-    useraccount_data.each { |useraccount| @useraccount_names[useraccount[1]] = useraccount[2] }
+  def get_sid(entity_name)
+    group_sids = inspec.command("wmic group where 'Name=\"#{entity_name}\"' get Name\",\"SID /format:csv").stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
+    return group_sids[0][2] unless group_sids.empty?
+    user_sids = inspec.command("wmic useraccount where 'Name=\"#{entity_name}\"' get Name\",\"SID /format:csv").stdout.strip.split("\r\n\r\n")[1..-1].map { |entry| entry.split(',') }
+    return user_sids[0][2] unless user_sids.empty?
+    entity_name
   end
 end
