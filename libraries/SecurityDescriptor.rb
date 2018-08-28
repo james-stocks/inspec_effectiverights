@@ -1,5 +1,15 @@
-class FilePermissions < Inspec.resource(1)
-  name 'file_permissions'
+class SecurityDescriptor < Inspec.resource(1)
+  name 'security_descriptor'
+  supports supports platform: 'windows'
+  desc 'Represents the security descriptor for a file in Windows'
+  example "
+  describe security_descriptor('C:\\windows\\system32\\EventVwr.exe') do
+    # Assert the set of entities with a given permission
+    its('ReadAndExecute') { should_not include 'S-1-5-32-546' }
+    # Assert the permissions for a given entity
+    its('S-1-5-32-544') { should_not include 'Write' }
+  end
+  "
 
   def initialize(filename, options = {})
     @filename = filename
@@ -7,7 +17,7 @@ class FilePermissions < Inspec.resource(1)
     @group_names = nil
   end
 
-  %w{Read ReadAndExecute Modify Sychronize FullControl}.each do |perm|
+  %w{Read ReadAndExecute Write Modify Sychronize FullControl}.each do |perm|
     define_method perm do
       fetch_results unless @results
       # Return keys that have this permission, with the domain stripped
@@ -25,7 +35,7 @@ class FilePermissions < Inspec.resource(1)
   end
 
   def to_s
-    "File permissions #{@filename}"
+    "Security Descriptor for #{@filename}"
   end
 
   private

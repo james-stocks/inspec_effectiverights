@@ -1,7 +1,7 @@
-control 'demonstrate effective rights tests' do
+control 'demonstrate testing a security descriptor' do
   administrators = security_identifier(group: 'Administrators').sid
 
-  describe file_permissions('C:\\windows\\system32\\EventVwr.exe') do
+  describe security_descriptor('C:\\windows\\system32\\EventVwr.exe') do
     its(administrators) { should include 'ReadAndExecute' }
     its(administrators) { should_not include 'Write' }
     its('Guest') { should eq [] }
